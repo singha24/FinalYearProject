@@ -4,25 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <include layout="@layout/sensors" />
 
-
-    <include layout="@layout/sensors"/>
-
-    <TextView
-        android:id="@+id/testView1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@+id/txtString"
-        android:text=""
-        android:textSize="15sp" />
-
-    <TextView
-        android:id="@+id/txtString"
-        android:layout_width="wrap_content"
-        android:layout_height="50dp"
-        android:layout_alignLeft="@+id/testView1"
-        android:layout_alignParentBottom="true"
-        android:text=""
-        android:textSize="15sp" />
 
 </LinearLayout>

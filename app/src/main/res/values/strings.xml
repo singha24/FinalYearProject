@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">FinalYearProject</string>
+    <string name="gvr_vr_mode_component" translatable="false" description="Google VR component name used for enabling VR mode">com.google.vr.vrcore/com.google.vr.vrcore.common.VrCoreListenerService</string>
 </resources>

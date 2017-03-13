@@ -4,49 +4,36 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
-import android.graphics.SurfaceTexture;
-import android.graphics.SurfaceTexture.OnFrameAvailableListener;
-import android.hardware.Camera;
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CaptureRequest;
-import android.opengl.GLES20;
-import android.opengl.Matrix;
-import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
-import android.view.KeyEvent;
-import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.TextView;
+import android.widget.ImageView;
 import android.widget.Toast;
 
-import com.google.vrtoolkit.cardboard.CardboardActivity;
-import com.google.vrtoolkit.cardboard.CardboardView;
-import com.google.vrtoolkit.cardboard.EyeTransform;
-import com.google.vrtoolkit.cardboard.HeadTransform;
-import com.google.vrtoolkit.cardboard.Viewport;
+import com.google.vr.sdk.audio.GvrAudioEngine;
+import com.google.vr.sdk.base.Eye;
+import com.google.vr.sdk.base.GvrActivity;
+import com.google.vr.sdk.base.GvrView;
+import com.google.vr.sdk.base.HeadTransform;
+import com.google.vr.sdk.base.Viewport;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.nio.ShortBuffer;
 import java.util.UUID;
 
 import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
 
-public class ArduinoMain extends AppCompatActivity {
+import io.vov.vitamio.widget.VideoView;
 
-    TextView sensorView0, sensorView1, sensorView2, sensorView3, sensorView4, sensorView5, sensorView6, sensorView7;
+public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
+
+    ImageView frontSensor, backSensor, leftSensor, rightSensor, frontLeftSensor, backLeftSensor, backRightSensor, frontRightSensor;
     Handler bluetoothIn;
 
     private static String TAG = "ARDUINO_ACTIVITY";
@@ -58,11 +45,55 @@ public class ArduinoMain extends AppCompatActivity {
 
     private ConnectedThread mConnectedThread;
 
+    private static int sensor0;
+    private static int sensor1;
+    private static int sensor2;
+    private static int sensor3;
+    private static int sensor4;
+    private static int sensor5;
+    private static int sensor6;
+    private static int sensor7;
+
+    private Button f;
+    private Button b;
+    private Button l;
+    private Button r;
+
+    /* Stereo panning of all sounds. This disables HRTF-based rendering. */
+    public static final int STEREO_PANNING = 0;
+
+    /* Renders all sounds over eight virtual loudspeakers arranged around
+    the listener’s head. HRTF-based rendering is enabled. */
+    public static final int BINAURAL_LOW_QUALITY = 1;
+
+    public static final int INVALID_ID = -1;
+
+    static String[] label = {"F", "B", "L", "R", "FL", "BL", "BR", "FR"};
     // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("0000111f-0000-1000-8000-00805f9b34fb");
 
     // String for MAC address
     private static String address;
+
+    private String pathToFileOrUrl = "udp://10.5.5.9:8554";
+    private VideoView goProLs;
+
+    private static GvrAudioEngine gvrAudioEngine;
+    private volatile int sourceId = GvrAudioEngine.INVALID_ID;
+    private static final String OBJECT_SOUND_FILE = "cube_sound.wav";
+    private static final String BEEP = "beep.mp3";
+
+    private SoundPositionObject frontSound;
+    private SoundPositionObject backSound;
+    private SoundPositionObject leftSound;
+    private SoundPositionObject rigthSound;
+
+    private SoundPositionObject frontRigthSound;
+    private SoundPositionObject frontLeftSound;
+
+    private SoundPositionObject backRightSound;
+    private SoundPositionObject backLeftSound;
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -70,14 +101,55 @@ public class ArduinoMain extends AppCompatActivity {
 
         setContentView(R.layout.activity_arduino_main);
 
-        sensorView0 = (TextView) findViewById(R.id.sensorView0);
-        sensorView1 = (TextView) findViewById(R.id.sensorView1);
-        sensorView2 = (TextView) findViewById(R.id.sensorView2);
-        sensorView3 = (TextView) findViewById(R.id.sensorView3);
-        sensorView4 = (TextView) findViewById(R.id.sensorView4);
-        sensorView5 = (TextView) findViewById(R.id.sensorView5);
-        sensorView6 = (TextView) findViewById(R.id.sensorView6);
-        sensorView7 = (TextView) findViewById(R.id.sensorView7);
+        frontSensor = (ImageView) findViewById(R.id.front);
+        backSensor = (ImageView) findViewById(R.id.back);
+        leftSensor = (ImageView) findViewById(R.id.left);
+        rightSensor = (ImageView) findViewById(R.id.right);
+        frontLeftSensor = (ImageView) findViewById(R.id.frontLeft);
+        backLeftSensor = (ImageView) findViewById(R.id.backLeft);
+        backRightSensor = (ImageView) findViewById(R.id.backRight);
+        frontRightSensor = (ImageView) findViewById(R.id.frontRight);
+
+        f = (Button) findViewById(R.id.f);
+        b = (Button) findViewById(R.id.b);
+        l = (Button) findViewById(R.id.l);
+        r = (Button) findViewById(R.id.r);
+
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+
+
+
+
+
+        /*goProLs = (io.vov.vitamio.widget.VideoView) findViewById(R.id.video);
+
+        goProLs.setVideoPath(pathToFileOrUrl);
+        goProLs.setMediaController(new MediaController(this));
+        goProLs.requestFocus();
+
+        goProLs.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            @Override
+            public void onPrepared(MediaPlayer mediaPlayer) {
+                // optional need Vitamio 4.0
+                mediaPlayer.setPlaybackSpeed(1.0f);
+            }
+        });*/
+
+        frontSound = new SoundPositionObject(0.0f, 0.0f, 5.0f);
+        backSound = new SoundPositionObject(0.0f, 0.0f, -10.0f);
+        leftSound = new SoundPositionObject(-5.0f, 0.0f, 0.0f);
+        rigthSound = new SoundPositionObject(5.0f, 0.0f, 0.0f);
+
+        frontRigthSound = new SoundPositionObject(5.0f,0.0f,5.0f);
+        frontLeftSound = new SoundPositionObject(-5.0f, 0.0f,5.0f);
+
+        backRightSound = new SoundPositionObject(5.0f,0.0f,-10.0f);
+        backLeftSound = new SoundPositionObject(-5.0f,0.0f,-10f);
+        
+        
+
 
 
         bluetoothIn = new Handler() {
@@ -90,33 +162,54 @@ public class ArduinoMain extends AppCompatActivity {
                     int endOfLineIndex = recDataString.indexOf("~");                    // determine the end-of-line
                     if (endOfLineIndex > 0) {                                           // make sure there data before ~
                         String dataInPrint = recDataString.substring(0, endOfLineIndex);    // ex
-                        int dataLength = dataInPrint.length();                          //get length of data received
+                        //int dataLength = dataInPrint.length();                          //get length of data received
 
-                        Log.d("DATA", recDataString.toString());
+                        //Log.d("DATA", recDataString.toString());
 
                         String[] data = recDataString.toString().split("\\+");
 
-                        String sensor0 = data[0];
-                        String sensor1 = data[1];
-                        String sensor2 = data[2];
-                        String sensor3 = data[3];
-                        String sensor4 = data[4];
-                        String sensor5 = data[5];
-                        String sensor6 = data[6];
-                        String sensor7 = data[7];
-
-                        sensorView0.setText("front = " + sensor0);    //update the textviews with sensor values
-                        sensorView1.setText("back  = " + sensor1);
-
-                        sensorView3.setText("right = " + sensor3);
-                        sensorView2.setText("left = " + sensor2);
+                        sensor0 = Integer.parseInt(data[0]);
+                        sensor1 = Integer.parseInt(data[1]);
+                        sensor2 = Integer.parseInt(data[2]);
+                        sensor3 = Integer.parseInt(data[3]);
+                        sensor4 = Integer.parseInt(data[4]);
+                        sensor5 = Integer.parseInt(data[5]);
+                        sensor6 = Integer.parseInt(data[6]);
+                        sensor7 = Integer.parseInt(data[7]);
 
 
-                        sensorView7.setText("front right = " + sensor7);
-                        sensorView4.setText("front left = " + sensor4);
+                        int[] sensorDataArray = {sensor0, sensor1, sensor2, sensor3, sensor4, sensor5, sensor6, sensor7};
+                        ImageView[] proximity = {frontSensor, backSensor, leftSensor, rightSensor, frontLeftSensor, backLeftSensor, backRightSensor, frontRightSensor};
+                        SoundPositionObject[] soundPos = {frontSound, backSound,leftSound,rigthSound,frontLeftSound,backLeftSound,backRightSound,frontRigthSound};
 
-                        sensorView6.setText("back right = " + sensor6);
-                        sensorView5.setText("back left = " + sensor5);
+
+
+                        for (int i = 0; i < sensorDataArray.length; i++) {
+
+                            //proximity[i].setText(label[i] + " : " + sensorDataArray[i]);
+
+                            if (sensorDataArray[i] > 0) {
+
+                                if (sensorDataArray[i] < 10) {
+
+                                    proximity[i].setImageResource(R.drawable.close);
+                                    play3DSound(soundPos[i]);
+
+                                } else if (sensorDataArray[i] < 20) {
+
+                                    proximity[i].setImageResource(R.drawable.mid);
+
+                                } else if (sensorDataArray[i] < 50) {
+
+                                    proximity[i].setImageResource(R.drawable.far);
+
+                                } else {
+                                    proximity[i].setImageDrawable(null);
+                                }
+                            }
+
+
+                        }
 
 
                         recDataString.delete(0, recDataString.length());                    //clear all string data
@@ -132,6 +225,17 @@ public class ArduinoMain extends AppCompatActivity {
 
         //getDeviceBTUUID();
 
+
+    }
+
+    public void play3DSound(SoundPositionObject pos) {
+
+        gvrAudioEngine = new GvrAudioEngine(this, GvrAudioEngine.RenderingMode.BINAURAL_HIGH_QUALITY);
+        gvrAudioEngine.preloadSoundFile(BEEP);
+        sourceId = gvrAudioEngine.createSoundObject(BEEP);
+        gvrAudioEngine.setSoundObjectPosition(
+                sourceId, pos.getX(), pos.getY(), pos.getZ());
+        gvrAudioEngine.playSound(sourceId, false);
 
     }
 
@@ -199,7 +303,7 @@ public class ArduinoMain extends AppCompatActivity {
         // Establish the Bluetooth socket connection.
         try {
             btSocket.connect();
-            Toast.makeText(this, "Connected to: " + btSocket.getRemoteDevice(), Toast.LENGTH_LONG).show();
+            //Toast.makeText(this, "Connected to: " + btSocket.getRemoteDevice(), Toast.LENGTH_LONG).show();
         } catch (IOException e) {
             e.printStackTrace();
 
@@ -210,7 +314,7 @@ public class ArduinoMain extends AppCompatActivity {
         //I send a character when resuming.beginning transmission to check device is connected
         //If it is not an exception will be thrown in the write method and finish() will be called
 
-        mConnectedThread.write("x");
+        mConnectedThread.write("x");  //TODO uncomment pls
     }
 
     @Override
@@ -230,6 +334,70 @@ public class ArduinoMain extends AppCompatActivity {
                 startActivityForResult(enableBtIntent, 1);
             }
         }
+    }
+
+    @Override
+    public void onNewFrame(HeadTransform headTransform) {
+
+        gvrAudioEngine.setHeadRotation(0, 0, 0, 0);
+        // Regular update call to GVR audio engine.
+        gvrAudioEngine.update();
+
+    }
+
+    @Override
+    public void onDrawEye(Eye eye) {
+
+    }
+
+    @Override
+    public void onFinishFrame(Viewport viewport) {
+
+    }
+
+    @Override
+    public void onSurfaceChanged(int i, int i1) {
+
+
+    }
+
+    protected void updateModelPosition() {
+
+
+        // Update the sound location to match it with the new cube position.
+        if (sourceId != GvrAudioEngine.INVALID_ID) {
+            gvrAudioEngine.setSoundObjectPosition(
+                    sourceId, 0.0f, 0.0f, 0.0f);
+        }
+    }
+
+    @Override
+    public void onSurfaceCreated(EGLConfig eglConfig) {
+
+        new Thread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        // Start spatial audio playback of OBJECT_SOUND_FILE at the model position. The
+                        // returned sourceId handle is stored and allows for repositioning the sound object
+                        // whenever the cube position changes.
+                        gvrAudioEngine.preloadSoundFile(OBJECT_SOUND_FILE);
+                        sourceId = gvrAudioEngine.createSoundObject(OBJECT_SOUND_FILE);
+                        gvrAudioEngine.setSoundObjectPosition(
+                                sourceId, 0.0f, 0.0f, 0.0f);
+                        gvrAudioEngine.playSound(sourceId, true /* looped playback */);
+                        // Preload an unspatialized sound to be played on a successful trigger on the cube.
+                    }
+                })
+                .start();
+
+        updateModelPosition();
+
+    }
+
+    @Override
+    public void onRendererShutdown() {
+
     }
 
 
@@ -263,7 +431,7 @@ public class ArduinoMain extends AppCompatActivity {
                 try {
                     bytes = mmInStream.read(buffer);            //read bytes from input buffer
                     String readMessage = new String(buffer, 0, bytes);
-                    Log.d("ARDUINO_DATA", readMessage);
+                    //Log.d("ARDUINO_DATA", readMessage);
                     // Send the obtained bytes to the UI Activity via handler
                     bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
                 } catch (IOException e) {

@@ -12,11 +12,17 @@
         android:theme="@style/AppTheme">
         <uses-permission android:name="android.permission.BLUETOOTH" />
         <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+        <uses-permission android:name="android.permission.WAKE_LOCK" />
+        <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+        <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+        <uses-permission android:name="android.permission.INTERNET" />
 
         <uses-feature android:name="android.hardware.camera2.full" />
         <uses-permission android:name="android.permission.CAMERA"></uses-permission>
 
-        <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+        <uses-feature
+            android:glEsVersion="0x00020000"
+            android:required="true" />
 
         <activity android:name=".MainActivity">
             <intent-filter>
@@ -25,7 +31,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ArduinoMain"></activity>
+        <activity
+            android:name="distance.fyp.assa.finalyearproject.ArduinoMain"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:enableVrMode="@string/gvr_vr_mode_component"></activity>
     </application>
 
 </manifest>
