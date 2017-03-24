@@ -3,14 +3,26 @@ package distance.fyp.assa.finalyearproject;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
+import android.util.Base64;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.WindowManager;
-import android.widget.Button;
+import android.webkit.HttpAuthHandler;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.ImageView;
+import android.widget.MediaController;
 import android.widget.Toast;
 
 import com.google.vr.sdk.audio.GvrAudioEngine;
@@ -20,16 +32,22 @@ import com.google.vr.sdk.base.GvrView;
 import com.google.vr.sdk.base.HeadTransform;
 import com.google.vr.sdk.base.Viewport;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.microedition.khronos.egl.EGLConfig;
-
-import io.vov.vitamio.widget.VideoView;
 
 public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
 
@@ -54,11 +72,6 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
     private static int sensor6;
     private static int sensor7;
 
-    private Button f;
-    private Button b;
-    private Button l;
-    private Button r;
-
     /* Stereo panning of all sounds. This disables HRTF-based rendering. */
     public static final int STEREO_PANNING = 0;
 
@@ -75,8 +88,6 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
     // String for MAC address
     private static String address;
 
-    private String pathToFileOrUrl = "udp://10.5.5.9:8554";
-    private VideoView goProLs;
 
     private static GvrAudioEngine gvrAudioEngine;
     private volatile int sourceId = GvrAudioEngine.INVALID_ID;
@@ -94,6 +105,12 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
     private SoundPositionObject backRightSound;
     private SoundPositionObject backLeftSound;
 
+    private WebView webCamera;
+
+    String URL = "http://192.168.0.16:8081";
+
+    Document documentt;
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -110,46 +127,50 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
         backRightSensor = (ImageView) findViewById(R.id.backRight);
         frontRightSensor = (ImageView) findViewById(R.id.frontRight);
 
-        f = (Button) findViewById(R.id.f);
-        b = (Button) findViewById(R.id.b);
-        l = (Button) findViewById(R.id.l);
-        r = (Button) findViewById(R.id.r);
-
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        webCamera = (WebView) findViewById(R.id.url);
 
 
+        webCamera.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        String newUA = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.4) Gecko/20100101 Firefox/4.0";
+        webCamera.getSettings().setUserAgentString(newUA);
+        webCamera.getSettings().setJavaScriptEnabled(true);
+        webCamera.getSettings().setDomStorageEnabled(true);
+        webCamera.setWebViewClient(new WebViewClient() {
 
 
-
-        /*goProLs = (io.vov.vitamio.widget.VideoView) findViewById(R.id.video);
-
-        goProLs.setVideoPath(pathToFileOrUrl);
-        goProLs.setMediaController(new MediaController(this));
-        goProLs.requestFocus();
-
-        goProLs.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
-            public void onPrepared(MediaPlayer mediaPlayer) {
-                // optional need Vitamio 4.0
-                mediaPlayer.setPlaybackSpeed(1.0f);
+            public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host, String realm) {
+                handler.proceed("admin", "admin");
             }
-        });*/
+
+            @Override
+            public void onPageFinished(WebView view, String url)
+            {
+                webCamera.loadUrl("javascript:(function() { " +
+                        "document.getElementById(\"imgvideo\"); })()");
+            }
+
+
+
+
+        });
+
+        webCamera.loadUrl("http://192.168.0.16:8081");
+
 
         frontSound = new SoundPositionObject(0.0f, 0.0f, 5.0f);
         backSound = new SoundPositionObject(0.0f, 0.0f, -10.0f);
         leftSound = new SoundPositionObject(-5.0f, 0.0f, 0.0f);
         rigthSound = new SoundPositionObject(5.0f, 0.0f, 0.0f);
 
-        frontRigthSound = new SoundPositionObject(5.0f,0.0f,5.0f);
-        frontLeftSound = new SoundPositionObject(-5.0f, 0.0f,5.0f);
+        frontRigthSound = new SoundPositionObject(5.0f, 0.0f, 5.0f);
+        frontLeftSound = new SoundPositionObject(-5.0f, 0.0f, 5.0f);
 
-        backRightSound = new SoundPositionObject(5.0f,0.0f,-10.0f);
-        backLeftSound = new SoundPositionObject(-5.0f,0.0f,-10f);
-        
-        
-
+        backRightSound = new SoundPositionObject(5.0f, 0.0f, -10.0f);
+        backLeftSound = new SoundPositionObject(-5.0f, 0.0f, -10f);
 
 
         bluetoothIn = new Handler() {
@@ -180,8 +201,7 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
 
                         int[] sensorDataArray = {sensor0, sensor1, sensor2, sensor3, sensor4, sensor5, sensor6, sensor7};
                         ImageView[] proximity = {frontSensor, backSensor, leftSensor, rightSensor, frontLeftSensor, backLeftSensor, backRightSensor, frontRightSensor};
-                        SoundPositionObject[] soundPos = {frontSound, backSound,leftSound,rigthSound,frontLeftSound,backLeftSound,backRightSound,frontRigthSound};
-
+                        SoundPositionObject[] soundPos = {frontSound, backSound, leftSound, rigthSound, frontLeftSound, backLeftSound, backRightSound, frontRigthSound};
 
 
                         for (int i = 0; i < sensorDataArray.length; i++) {
@@ -193,7 +213,7 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
                                 if (sensorDataArray[i] < 10) {
 
                                     proximity[i].setImageResource(R.drawable.close);
-                                    play3DSound(soundPos[i]);
+                                    //play3DSound(soundPos[i]); //TODO
 
                                 } else if (sensorDataArray[i] < 20) {
 
@@ -227,6 +247,23 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
 
 
     }
+
+
+    /*private class WebViewClient extends android.webkit.WebViewClient {
+
+        String javascript = "javascript: document.getElementById('imgvideo');";
+
+        @Override
+        public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host, String realm) {
+            handler.proceed("admin", "admin");
+        }
+
+
+
+
+
+    }*/
+
 
     public void play3DSound(SoundPositionObject pos) {
 
