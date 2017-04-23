@@ -76,7 +76,7 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
     public static final int STEREO_PANNING = 0;
 
     /* Renders all sounds over eight virtual loudspeakers arranged around
-    the listenerâ€™s head. HRTF-based rendering is enabled. */
+    the listener’s head. HRTF-based rendering is enabled. */
     public static final int BINAURAL_LOW_QUALITY = 1;
 
     public static final int INVALID_ID = -1;
@@ -219,7 +219,7 @@ public class ArduinoMain extends GvrActivity implements GvrView.StereoRenderer {
 
                                     proximity[i].setImageResource(R.drawable.mid);
 
-                                } else if (sensorDataArray[i] < 50) {
+                                } else if (sensorDataArray[i] < 60) {
 
                                     proximity[i].setImageResource(R.drawable.far);
 
